@@ -1,24 +1,25 @@
 -- Advanced Shader Script | Brookhaven Optimized
 -- Compatível com Xeno Executor
--- Versão 2.0 - Terrain + Lighting Focus
+-- Versão 2.1 - Corrigido: Brilho, FOV, Luzes e Água
 
 local Lighting = game:GetService("Lighting")
 local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
 local Terrain = workspace.Terrain
 
 -- =============================================
 -- CONFIGURAÇÕES
 -- =============================================
 local Config = {
-    -- Dia
-    DayBrightness = 3.8,
-    DayAmbient = Color3.fromRGB(140, 135, 145),
-    DayOutdoor = Color3.fromRGB(160, 155, 150),
-    DayTint = Color3.fromRGB(255, 245, 225),
-    DaySaturation = 0.35,
-    DayContrast = 0.15,
+    -- Dia (menos claro, mais natural)
+    DayBrightness = 2.2,
+    DayAmbient = Color3.fromRGB(110, 108, 112),
+    DayOutdoor = Color3.fromRGB(120, 118, 115),
+    DayTint = Color3.fromRGB(245, 238, 220),
+    DaySaturation = 0.18,
+    DayContrast = 0.08,
 
-    -- Noite
+    -- Noite (suave)
     NightBrightness = 0.4,
     NightAmbient = Color3.fromRGB(55, 60, 90),
     NightOutdoor = Color3.fromRGB(40, 45, 80),
@@ -27,21 +28,34 @@ local Config = {
     NightContrast = 0.10,
 
     -- Terrain
-    WaterColor = Color3.fromRGB(50, 155, 215),
+    WaterColor = Color3.fromRGB(40, 130, 195),
     GrassColor = Color3.fromRGB(85, 125, 60),
     DirtColor = Color3.fromRGB(108, 80, 52),
     SandColor = Color3.fromRGB(195, 175, 130),
     RockColor = Color3.fromRGB(110, 105, 100),
     AsphaltColor = Color3.fromRGB(48, 44, 42),
 
-    -- Postes/Luzes
-    LampBrightness = 6,
-    LampRange = 22,
-    LampColor = Color3.fromRGB(255, 195, 95),
-    HouseLightColor = Color3.fromRGB(255, 220, 150),
-    HouseLightBrightness = 4,
-    HouseLightRange = 14,
+    -- Postes/Luzes (mais realistas)
+    LampBrightness = 3,
+    LampRange = 16,
+    LampColor = Color3.fromRGB(255, 190, 80),
+    HouseLightColor = Color3.fromRGB(255, 215, 140),
+    HouseLightBrightness = 2.5,
+    HouseLightRange = 10,
+
+    -- FOV
+    FOV = 70,
 }
+
+-- =============================================
+-- FOV
+-- =============================================
+local function SetFOV()
+    local camera = workspace.CurrentCamera
+    if camera then
+        camera.FieldOfView = Config.FOV
+    end
+end
 
 -- =============================================
 -- LIMPAR EFEITOS ANTERIORES
@@ -62,38 +76,43 @@ local bloom, cc, sunRays, atmosphere, dof
 local function SetupEffects()
     CleanLighting()
 
+    -- Atmosphere mais suave
     atmosphere = Instance.new("Atmosphere")
-    atmosphere.Density = 0.32
-    atmosphere.Offset = 0.08
+    atmosphere.Density = 0.28
+    atmosphere.Offset = 0.06
     atmosphere.Color = Color3.fromRGB(175, 200, 255)
     atmosphere.Decay = Color3.fromRGB(95, 115, 165)
-    atmosphere.Glare = 0.45
-    atmosphere.Haze = 1.8
+    atmosphere.Glare = 0.2
+    atmosphere.Haze = 1.2
     atmosphere.Parent = Lighting
 
+    -- Bloom reduzido para não estourar branco
     bloom = Instance.new("BloomEffect")
-    bloom.Intensity = 0.65
-    bloom.Size = 26
-    bloom.Threshold = 0.92
+    bloom.Intensity = 0.35
+    bloom.Size = 18
+    bloom.Threshold = 0.97
     bloom.Parent = Lighting
 
+    -- Color Correction mais suave
     cc = Instance.new("ColorCorrectionEffect")
-    cc.Brightness = 0.05
-    cc.Contrast = 0.15
-    cc.Saturation = 0.35
+    cc.Brightness = 0.01
+    cc.Contrast = 0.08
+    cc.Saturation = 0.18
     cc.TintColor = Config.DayTint
     cc.Parent = Lighting
 
+    -- Sun Rays suave
     sunRays = Instance.new("SunRaysEffect")
-    sunRays.Intensity = 0.14
-    sunRays.Spread = 0.65
+    sunRays.Intensity = 0.08
+    sunRays.Spread = 0.5
     sunRays.Parent = Lighting
 
+    -- Depth of Field suave
     dof = Instance.new("DepthOfFieldEffect")
-    dof.FarIntensity = 0.08
-    dof.NearIntensity = 0.04
-    dof.FocusDistance = 70
-    dof.InFocusRadius = 50
+    dof.FarIntensity = 0.05
+    dof.NearIntensity = 0.02
+    dof.FocusDistance = 80
+    dof.InFocusRadius = 60
     dof.Parent = Lighting
 
     Lighting.GlobalShadows = true
@@ -107,6 +126,7 @@ end
 -- TERRAIN DO BROOKHAVEN
 -- =============================================
 local function SetupTerrain()
+    -- Água mais escura e realista
     Terrain:SetMaterialColor(Enum.TerrainMaterial.Water, Config.WaterColor)
     Terrain:SetMaterialColor(Enum.TerrainMaterial.Grass, Config.GrassColor)
     Terrain:SetMaterialColor(Enum.TerrainMaterial.LeafyGrass, Color3.fromRGB(75, 118, 52))
@@ -121,7 +141,7 @@ local function SetupTerrain()
     Terrain:SetMaterialColor(Enum.TerrainMaterial.Cobblestone, Config.AsphaltColor)
     Terrain:SetMaterialColor(Enum.TerrainMaterial.Snow, Color3.fromRGB(235, 242, 255))
 
-    print("[Shader] ✅ Terrain do Brookhaven configurado!")
+    print("[Shader] ✅ Terrain configurado!")
 end
 
 -- =============================================
@@ -145,8 +165,8 @@ local function ApplyToPart(obj)
         or name:find("water") or name:find("agua")
         or name:find("lake") or name:find("river") or name:find("sea") then
         obj.Color = Config.WaterColor
-        obj.Transparency = 0.28
-        obj.Reflectance = 0.45
+        obj.Transparency = 0.35
+        obj.Reflectance = 0.5
         obj.CastShadow = false
 
     elseif mat == Enum.Material.Ground or mat == Enum.Material.Mud
@@ -195,35 +215,38 @@ local function UpdateDayNight()
 
     local hour = Lighting.ClockTime
 
+    -- Pôr do sol / Nascer do sol
     if (hour >= 5 and hour < 7) or (hour >= 17 and hour < 19) then
-        Lighting.Brightness = 2.0
-        Lighting.Ambient = Color3.fromRGB(120, 90, 70)
-        Lighting.OutdoorAmbient = Color3.fromRGB(200, 130, 80)
-        Lighting.ColorShift_Top = Color3.fromRGB(255, 160, 80)
-        Lighting.ColorShift_Bottom = Color3.fromRGB(150, 80, 50)
-        cc.Saturation = 0.45
-        cc.Brightness = 0.06
-        cc.TintColor = Color3.fromRGB(255, 210, 160)
+        Lighting.Brightness = 1.4
+        Lighting.Ambient = Color3.fromRGB(110, 82, 65)
+        Lighting.OutdoorAmbient = Color3.fromRGB(180, 115, 70)
+        Lighting.ColorShift_Top = Color3.fromRGB(240, 150, 70)
+        Lighting.ColorShift_Bottom = Color3.fromRGB(130, 70, 45)
+        cc.Saturation = 0.3
+        cc.Brightness = 0.02
+        cc.TintColor = Color3.fromRGB(248, 205, 155)
         if atmosphere then
-            atmosphere.Glare = 0.8
-            atmosphere.Haze = 2.5
+            atmosphere.Glare = 0.5
+            atmosphere.Haze = 2.0
         end
 
+    -- Dia (mais escuro e natural)
     elseif hour >= 7 and hour < 17 then
         Lighting.Brightness = Config.DayBrightness
         Lighting.Ambient = Config.DayAmbient
         Lighting.OutdoorAmbient = Config.DayOutdoor
-        Lighting.ColorShift_Top = Color3.fromRGB(255, 240, 190)
-        Lighting.ColorShift_Bottom = Color3.fromRGB(120, 115, 100)
+        Lighting.ColorShift_Top = Color3.fromRGB(230, 220, 175)
+        Lighting.ColorShift_Bottom = Color3.fromRGB(105, 100, 88)
         cc.Saturation = Config.DaySaturation
         cc.Contrast = Config.DayContrast
-        cc.Brightness = 0.05
+        cc.Brightness = 0.01
         cc.TintColor = Config.DayTint
         if atmosphere then
-            atmosphere.Glare = 0.45
-            atmosphere.Haze = 1.8
+            atmosphere.Glare = 0.2
+            atmosphere.Haze = 1.2
         end
 
+    -- Noite suave
     else
         Lighting.Brightness = Config.NightBrightness
         Lighting.Ambient = Config.NightAmbient
@@ -235,8 +258,8 @@ local function UpdateDayNight()
         cc.Brightness = -0.04
         cc.TintColor = Config.NightTint
         if atmosphere then
-            atmosphere.Glare = 0.1
-            atmosphere.Haze = 0.8
+            atmosphere.Glare = 0.05
+            atmosphere.Haze = 0.6
         end
     end
 end
@@ -263,7 +286,7 @@ local function AnimateWater(dt)
     waterTick += dt
     for _, part in ipairs(waterParts) do
         if part and part.Parent then
-            part.Transparency = 0.26 + math.sin(waterTick * 1.1) * 0.07
+            part.Transparency = 0.33 + math.sin(waterTick * 1.1) * 0.05
         end
     end
 end
@@ -271,14 +294,21 @@ end
 -- =============================================
 -- INICIALIZAÇÃO
 -- =============================================
-print("[Shader] 🔄 Carregando shaders para Brookhaven...")
+print("[Shader] 🔄 Carregando Brookhaven Shaders V2.1...")
 
 SetupEffects()
+SetFOV()
 task.wait(1.5)
 SetupTerrain()
 task.wait(0.5)
 ApplyAllParts()
 CollectWaterParts()
+
+-- Mantém FOV ao trocar de câmera
+workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
+    task.wait(0.1)
+    SetFOV()
+end)
 
 RunService.Heartbeat:Connect(function(dt)
     UpdateDayNight()
@@ -296,4 +326,4 @@ workspace.DescendantAdded:Connect(function(obj)
     end
 end)
 
-print("[Shader] ✅ Brookhaven Shaders V2 ativado com sucesso!")
+print("[Shader] ✅ Brookhaven Shaders V2.1 ativado!")
